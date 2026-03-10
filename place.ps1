@@ -2,8 +2,8 @@
 #
 # Usage:
 #   .\place.ps1 -FilePath commands.txt
-#   .\place.ps1 -FilePath commands_batch01.txt -Delay 300
-#   .\place.ps1 -FilePath "commands_batch*.txt" -Delay 250 -WindowTitle "Minecraft"
+#   .\place.ps1 -FilePath commands_0_0.txt -Delay 300
+#   .\place.ps1 -FilePath "commands_*.txt" -Delay 250 -WindowTitle "Minecraft"
 #   .\place.ps1 -FilePath commands.txt -StartDelay 5
 
 param(
@@ -11,10 +11,10 @@ param(
     [string]$FilePath,
 
     # Milliseconds to wait between each command (increase if blocks are missing)
-    [int]$Delay = 200,
+    [int]$Delay = 600,
 
     # Seconds to count down before starting (gives you time to switch to Minecraft)
-    [int]$StartDelay = 3,
+    [int]$StartDelay = 5,
 
     # Partial window title to search for (case-insensitive)
     [string]$WindowTitle = "Minecraft"
@@ -130,10 +130,12 @@ public class Win32 {
 
 #region --- Find files ---
 
+
+# Support region-split files (e.g., commands_0_0.txt, commands_1_1.txt) and wildcards
 $resolved = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($FilePath)
 $files    = @(Get-Item $resolved -ErrorAction SilentlyContinue)
 if ($files.Count -eq 0) {
-    # Try as wildcard
+    # Try as wildcard (e.g., commands_*.txt)
     $files = @(Get-ChildItem (Split-Path $resolved -Parent) -Filter (Split-Path $resolved -Leaf) | Sort-Object Name)
 }
 if ($files.Count -eq 0) {
@@ -143,8 +145,8 @@ if ($files.Count -eq 0) {
 
 $allCommands = [System.Collections.Generic.List[string]]::new()
 foreach ($f in $files) {
-    $lines = Get-Content $f.FullName | Where-Object { $_ -match '\S' }
-    $allCommands.AddRange($lines)
+    $lines = @(Get-Content $f.FullName | Where-Object { $_ -match '\S' })
+    $allCommands.AddRange([string[]]$lines)
     Write-Host "Loaded $($lines.Count) commands from $($f.Name)" -ForegroundColor DarkCyan
 }
 Write-Host ""
@@ -192,11 +194,12 @@ foreach ($cmd in $allCommands) {
 
     # Ensure it starts with /
     if (-not $line.StartsWith('/')) { $line = '/' + $line }
-
+    Write-host "Sending: $line" -ForegroundColor Gray
     # Restore Minecraft window and bring to foreground
     if ([Win32]::IsIconic($hwnd)) { [Win32]::ShowWindow($hwnd, 9) }  # SW_RESTORE = 9
     [Win32]::SetForegroundWindow($hwnd) | Out-Null
     Start-Sleep -Milliseconds 30
+
 
     # Open chat with / then type the rest of the command, then Enter
     [Win32]::SendKey([Win32]::VK_SLASH)        # opens chat + types "/"
