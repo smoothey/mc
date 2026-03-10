@@ -11,7 +11,7 @@ param(
     [string]$FilePath,
 
     # Milliseconds to wait between each command (increase if blocks are missing)
-    [int]$Delay = 600,
+    [int]$Delay = 800,
 
     # Seconds to count down before starting (gives you time to switch to Minecraft)
     [int]$StartDelay = 5,

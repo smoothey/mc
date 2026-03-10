@@ -173,9 +173,8 @@ function Format-SetblockStates([object]$states) {
     $parts = foreach ($key in $states.Keys) {
         $val = $states[$key]
         if ($val -is [sbyte] -or $val -is [byte]) {
-            # boolean byte
-            $boolStr = if ([int]$val -ne 0) { 'true' } else { 'false' }
-            '"' + $key + '"=' + $boolStr
+            # output byte as 0/1
+            '"' + $key + '"=' + ([int]$val)
         } elseif ($val -is [int] -or $val -is [long] -or $val -is [short]) {
             '"' + $key + '"=' + $val
         } else {
@@ -271,7 +270,7 @@ for ($x = 0; $x -lt $sx; $x++) {
             $stateStr = Format-SetblockStates $states
 
             $cmdPrefix = if ($Prefix) { '/' } else { '' }
-            $cmd = $cmdPrefix + "setblock ~$x ~$y ~$z $blockName$stateStr"
+            $cmd = $cmdPrefix + "setblock ~$x ~$y ~$z $blockName$stateStr replace"
             $commands.Add($cmd)
             #Write-Host $cmd
 
@@ -282,7 +281,7 @@ for ($x = 0; $x -lt $sx; $x++) {
                 if ($wlogName -notin $airNames) {
                     $wlogStates = $palette[$wlogIdx]['states']
                     $wlogStateStr = Format-SetblockStates $wlogStates
-                    $wCmd = $cmdPrefix + "setblock ~$x ~$y ~$z $wlogName$wlogStateStr"
+                    $wCmd = $cmdPrefix + "setblock ~$x ~$y ~$z $wlogName$wlogStateStr replace"
                     $commands.Add($wCmd)
                     #Write-Host $wCmd
                 }
@@ -329,7 +328,8 @@ if ($OutputFile) {
             $blockCmd = $cmdParts[0]
             $blockY = $cmdParts[2]
             $blockRest = $cmdParts[4..($cmdParts.Count-1)] -join ' '
-            $newCmd = "$cmdPrefix$blockCmd ~${relX} ~$blockY ~${relZ} $blockRest"
+            $newCmd = "$cmdPrefix$blockCmd ~${relX} $blockY ~${relZ} $blockRest"
+            Write-Host $blockRest
             $areaCommands[$areaKey].Add($newCmd)
         }
     }
