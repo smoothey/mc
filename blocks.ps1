@@ -254,10 +254,10 @@ $airNames = @('minecraft:air', 'minecraft:structure_void')
 
 $commands = [System.Collections.Generic.List[string]]::new()
 
-for ($z = 0; $z -lt $sz; $z++) {
+for ($x = 0; $x -lt $sx; $x++) {
     for ($y = 0; $y -lt $sy; $y++) {
-        for ($x = 0; $x -lt $sx; $x++) {
-            $linearIdx   = ($y * $sz * $sx) + ($z * $sx) + $x
+        for ($z = 0; $z -lt $sz; $z++) {
+            $linearIdx   = ($x * $sz * $sy) + ($y * $sx) + $z
             $paletteIdx  = [int]$primary[$linearIdx]
 
             if ($paletteIdx -lt 0 -or $paletteIdx -ge $palette.Count) { continue }
@@ -273,7 +273,7 @@ for ($z = 0; $z -lt $sz; $z++) {
             $cmdPrefix = if ($Prefix) { '/' } else { '' }
             $cmd = $cmdPrefix + "setblock ~$x ~$y ~$z $blockName$stateStr"
             $commands.Add($cmd)
-            Write-Host $cmd
+            #Write-Host $cmd
 
             # Waterlog layer — emit a second setblock if occupied
             $wlogIdx  = [int]$waterlog[$linearIdx]
@@ -284,7 +284,7 @@ for ($z = 0; $z -lt $sz; $z++) {
                     $wlogStateStr = Format-SetblockStates $wlogStates
                     $wCmd = $cmdPrefix + "setblock ~$x ~$y ~$z $wlogName$wlogStateStr"
                     $commands.Add($wCmd)
-                    Write-Host $wCmd
+                    #Write-Host $wCmd
                 }
             }
         }
