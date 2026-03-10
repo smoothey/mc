@@ -291,31 +291,54 @@ for ($x = 0; $x -lt $sx; $x++) {
     }
 }
 
+
 if ($OutputFile) {
     $outPath = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($OutputFile)
+    $base    = [System.IO.Path]::GetFileNameWithoutExtension($outPath)
+    $ext     = [System.IO.Path]::GetExtension($outPath)
+    $dir     = [System.IO.Path]::GetDirectoryName($outPath)
 
-    if ($BatchSize -gt 0) {
-        # Split into numbered batch files: commands_batch001.txt, commands_batch002.txt, ...
-        $base      = [System.IO.Path]::GetFileNameWithoutExtension($outPath)
-        $ext       = [System.IO.Path]::GetExtension($outPath)
-        $dir       = [System.IO.Path]::GetDirectoryName($outPath)
-        $total     = $commands.Count
-        $numBatches = [Math]::Ceiling($total / $BatchSize)
-        $padWidth  = $numBatches.ToString().Length
+    # Prepare four lists for 32x32 x/z areas
+    $areaCommands = @{
+        '0_0' = [System.Collections.Generic.List[string]]::new()
+        '0_1' = [System.Collections.Generic.List[string]]::new()
+        '1_0' = [System.Collections.Generic.List[string]]::new()
+        '1_1' = [System.Collections.Generic.List[string]]::new()
+    }
 
-        Write-Host ""
-        for ($b = 0; $b -lt $numBatches; $b++) {
-            $start    = $b * $BatchSize
-            $slice    = $commands.GetRange($start, [Math]::Min($BatchSize, $total - $start))
-            $batchNum = ($b + 1).ToString().PadLeft($padWidth, '0')
-            $batchPath = [System.IO.Path]::Combine($dir, "${base}_batch${batchNum}${ext}")
-            $slice | Set-Content -Path $batchPath -Encoding UTF8
-            Write-Host ("Batch {0}/{1} ({2} commands) -> {3}" -f ($b+1), $numBatches, $slice.Count, $batchPath) -ForegroundColor Cyan
+
+    foreach ($cmd in $commands) {
+        # Extract x, y, z from command string
+        if ($cmd -match 'setblock ~([0-9]+) ~([0-9]+) ~([0-9]+) ') {
+            $x = [int]$matches[1]
+            $y = [int]$matches[2]
+            $z = [int]$matches[3]
+            $areaX = if ($x -lt 32) { 0 } else { 1 }
+            $areaZ = if ($z -lt 32) { 0 } else { 1 }
+            $areaKey = "$areaX`_$areaZ"
+
+            # Calculate relative coordinates for each area
+            $relX = $x
+            $relZ = $z
+            if ($areaX -eq 1) { $relX = $x - 32 }
+            if ($areaZ -eq 1) { $relZ = $z - 32 }
+
+            # Compose new command with relative coordinates
+            $cmdPrefix = if ($Prefix) { '/' } else { '' }
+            $cmdParts = $cmd -split ' '
+            $blockCmd = $cmdParts[0]
+            $blockY = $cmdParts[2]
+            $blockRest = $cmdParts[4..($cmdParts.Count-1)] -join ' '
+            $newCmd = "$cmdPrefix$blockCmd ~${relX} ~$blockY ~${relZ} $blockRest"
+            $areaCommands[$areaKey].Add($newCmd)
         }
-    } else {
-        $commands | Set-Content -Path $outPath -Encoding UTF8
-        Write-Host ""
-        Write-Host "Commands written to: $outPath" -ForegroundColor Cyan
+    }
+
+    foreach ($area in $areaCommands.Keys) {
+        $fileName = "${base}_${area}${ext}"
+        $filePath = [System.IO.Path]::Combine($dir, $fileName)
+        $areaCommands[$area] | Set-Content -Path $filePath -Encoding UTF8
+        Write-Host ("Area {0} ({1} commands) -> {2}" -f $area, $areaCommands[$area].Count, $filePath) -ForegroundColor Cyan
     }
 }
 
