@@ -254,8 +254,8 @@ $airNames = @('minecraft:air', 'minecraft:structure_void')
 
 $commands = [System.Collections.Generic.List[string]]::new()
 
-for ($y = 0; $y -lt $sy; $y++) {
-    for ($z = 0; $z -lt $sz; $z++) {
+for ($z = 0; $z -lt $sz; $z++) {
+    for ($y = 0; $y -lt $sy; $y++) {
         for ($x = 0; $x -lt $sx; $x++) {
             $linearIdx   = ($y * $sz * $sx) + ($z * $sx) + $x
             $paletteIdx  = [int]$primary[$linearIdx]
@@ -271,7 +271,7 @@ for ($y = 0; $y -lt $sy; $y++) {
             $stateStr = Format-SetblockStates $states
 
             $cmdPrefix = if ($Prefix) { '/' } else { '' }
-            $cmd = $cmdPrefix + "setblock $x $y $z $blockName$stateStr"
+            $cmd = $cmdPrefix + "setblock ~$x ~$y ~$z $blockName$stateStr"
             $commands.Add($cmd)
             Write-Host $cmd
 
@@ -282,7 +282,7 @@ for ($y = 0; $y -lt $sy; $y++) {
                 if ($wlogName -notin $airNames) {
                     $wlogStates = $palette[$wlogIdx]['states']
                     $wlogStateStr = Format-SetblockStates $wlogStates
-                    $wCmd = $cmdPrefix + "setblock $x $y $z $wlogName$wlogStateStr"
+                    $wCmd = $cmdPrefix + "setblock ~$x ~$y ~$z $wlogName$wlogStateStr"
                     $commands.Add($wCmd)
                     Write-Host $wCmd
                 }
