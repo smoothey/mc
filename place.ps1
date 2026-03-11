@@ -13,6 +13,9 @@ param(
     # Milliseconds to wait between each command (increase if blocks are missing)
     [int]$Delay = 800,
 
+    # Add this value to setblock Y coordinates before sending (default lifts builds by 1)
+    [int]$YOffset = 1,
+
     # Seconds to count down before starting (gives you time to switch to Minecraft)
     [int]$StartDelay = 5,
 
@@ -191,6 +194,17 @@ $total  = $allCommands.Count
 foreach ($cmd in $allCommands) {
     $line = $cmd.Trim()
     if (-not $line) { continue }
+
+    # Shift setblock coordinates upward by the configured Y offset.
+    if ($line -match '^(/?setblock\s+~(-?\d+)\s+~(-?\d+)\s+~(-?\d+)\s+)(.+)$') {
+        $prefix = $matches[1]
+        $x = [int]$matches[2]
+        $y = [int]$matches[3]
+        $z = [int]$matches[4]
+        $rest = $matches[5]
+        $adjY = $y + $YOffset
+        $line = "$prefix~$x ~$adjY ~$z $rest"
+    }
 
     # Ensure it starts with /
     if (-not $line.StartsWith('/')) { $line = '/' + $line }
