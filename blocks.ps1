@@ -189,19 +189,33 @@ function Format-SetblockStates([object]$states) {
 
 #region --- Main ---
 
-if (-not (Test-Path $FilePath)) {
-    Write-Error "File not found: $FilePath"
+# Resolve files to process (single file, directory, or wildcard)
+if (Test-Path $FilePath -PathType Container) {
+    $filesToProcess = @(Get-ChildItem -Path $FilePath -Filter '*.mcstructure' | Select-Object -ExpandProperty FullName)
+} elseif ($FilePath -match '[*?]') {
+    $filesToProcess = @(Resolve-Path $FilePath | Select-Object -ExpandProperty Path)
+} else {
+    if (-not (Test-Path $FilePath)) {
+        Write-Error "File not found: $FilePath"
+        exit 1
+    }
+    $filesToProcess = @((Resolve-Path $FilePath).Path)
+}
+
+if ($filesToProcess.Count -eq 0) {
+    Write-Error "No .mcstructure files found at: $FilePath"
     exit 1
 }
 
-# Resolve to an absolute path so .NET APIs use the correct location
-$FilePath = (Resolve-Path $FilePath).Path
+$totalCommandsAll = 0
 
-$script:data = [System.IO.File]::ReadAllBytes($FilePath)
+foreach ($currentFilePath in $filesToProcess) {
+
+$script:data = [System.IO.File]::ReadAllBytes($currentFilePath)
 $script:pos  = 0
 
 Write-Host ""
-Write-Host "File   : $FilePath" -ForegroundColor Cyan
+Write-Host "File   : $currentFilePath" -ForegroundColor Cyan
 Write-Host "Size   : $([Math]::Round($script:data.Length / 1KB, 1)) KB" -ForegroundColor Cyan
 Write-Host ""
 
@@ -329,21 +343,48 @@ if ($OutputFile) {
             $blockY = $cmdParts[2]
             $blockRest = $cmdParts[4..($cmdParts.Count-1)] -join ' '
             $newCmd = "$cmdPrefix$blockCmd ~${relX} $blockY ~${relZ} $blockRest"
-            Write-Host $blockRest
+            #Write-Host $blockRest
             $areaCommands[$areaKey].Add($newCmd)
         }
     }
 
     foreach ($area in $areaCommands.Keys) {
-        $fileName = "${base}_${area}${ext}"
-        $filePath = [System.IO.Path]::Combine($dir, $fileName)
-        $areaCommands[$area] | Set-Content -Path $filePath -Encoding UTF8
-        Write-Host ("Area {0} ({1} commands) -> {2}" -f $area, $areaCommands[$area].Count, $filePath) -ForegroundColor Cyan
+        # Calculate block offset for filename
+        $offsetX = if ($area -eq '0_0' -or $area -eq '0_1') { 0 } else { 32 }
+        $offsetZ = if ($area -eq '0_0' -or $area -eq '1_0') { 0 } else { 32 }
+        $baseName = [System.IO.Path]::GetFileNameWithoutExtension($currentFilePath)
+        # For 64x64, offsets are 0 or 32, so add to base coordinates
+        if ($baseName -match '^(\d+)_(\d+)_(\d+)_(.+)$') {
+            $baseX = [int]$matches[1]
+            $baseY = [int]$matches[2]
+            $baseZ = [int]$matches[3]
+            $namePart = $matches[4]
+        } else {
+            $baseX = 0; $baseY = 0; $baseZ = 0; $namePart = $baseName
+        }
+        # Map areaKey to correct offset
+        if ($area -eq '0_0') {
+            $outX = $baseX; $outY = $baseY; $outZ = $baseZ;
+        } elseif ($area -eq '1_0') {
+            $outX = $baseX + 32; $outY = $baseY; $outZ = $baseZ;
+        } elseif ($area -eq '0_1') {
+            $outX = $baseX; $outY = $baseY; $outZ = $baseZ + 32;
+        } elseif ($area -eq '1_1') {
+            $outX = $baseX + 32; $outY = $baseY; $outZ = $baseZ + 32;
+        }
+        $fileName    = "${outX}_${outY}_${outZ}_${namePart}${ext}"
+        $outFilePath = [System.IO.Path]::Combine($dir, $fileName)
+        $areaCommands[$area] | Set-Content -Path $outFilePath -Encoding UTF8
+        Write-Host ("Area {0} ({1} commands) -> {2}" -f "$offsetX,0,$offsetZ", $areaCommands[$area].Count, $outFilePath) -ForegroundColor Cyan
     }
 }
 
+    $totalCommandsAll += $commands.Count
+
+} # end foreach $currentFilePath
+
 Write-Host ""
-Write-Host ("Total commands output : {0}" -f $commands.Count) -ForegroundColor Cyan
+Write-Host ("Total commands output : {0}" -f $totalCommandsAll) -ForegroundColor Cyan
 Write-Host "Done." -ForegroundColor Cyan
 
 #endregion
